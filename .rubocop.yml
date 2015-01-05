@@ -1,0 +1,26 @@
+Documentation:
+  Enabled: false
+
+Metrics/LineLength:
+  Max: 99
+
+Metrics/AbcSize:
+  Max: 50
+
+Metrics/MethodLength:
+  CountComments: false
+  Max: 30
+
+Metrics/ClassLength:
+  CountComments: false
+  Max: 250
+
+Style/GuardClause:
+  MinBodyLength: 10
+
+Metrics/CyclomaticComplexity:
+  Max: 10
+
+Metrics/ParameterLists:
+  Max: 6
+  CountKeywordArgs: true
