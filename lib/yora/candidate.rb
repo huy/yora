@@ -24,7 +24,7 @@ module Yora
     end
 
     def on_append_entries(opts)
-      reply_to = opts[:peer]
+      reply_to = node.cluster[opts[:peer]]
       if node.current_term > opts[:term]
         node.save
         transmitter.send_message(reply_to, :append_entries_resp,
@@ -47,7 +47,7 @@ module Yora
           last_log_term: last_log_term
         }
 
-        transmitter.send_message(peer, :request_vote, opts)
+        transmitter.send_message(node.cluster[peer], :request_vote, opts)
       end
     end
 

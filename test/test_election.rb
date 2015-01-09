@@ -1,4 +1,3 @@
-require 'test/unit'
 require_relative 'test'
 
 class TestElection < Test::Unit::TestCase

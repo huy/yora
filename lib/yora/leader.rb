@@ -14,7 +14,12 @@ module Yora
 
       reset_index
       append_noop_entry
-      broadcast_entries(true)
+
+      if node.cluster.size == 1
+        commit_entries
+      else
+        broadcast_entries(true)
+      end
     end
 
     def on_append_entries(_opts)
@@ -45,6 +50,8 @@ module Yora
       else
         on_non_config_command(opts)
       end
+
+      commit_entries if node.cluster.size == 1
     end
 
     def on_client_query(opts)
@@ -56,10 +63,8 @@ module Yora
                                  leader_id: node.node_id,
                                  leader_addr: node.cluster[node.node_id])
       else
-        data = node.handler.on_query(opts[:query])
-        transmitter.send_message(client, :query_resp,
-                                 success: true,
-                                 data: data)
+        response = node.handler.on_query(opts[:query])
+        transmitter.send_message(client, :query_resp, response)
       end
     end
 
@@ -71,11 +76,7 @@ module Yora
       entry = LogEntry.new(node.current_term, opts[:command], opts[:client])
       node.append_log(entry)
 
-      if node.cluster.size == 1
-        commit_entries
-      else
-        broadcast_entries(false)
-      end
+      broadcast_entries(false)
     end
 
     def on_config_command(opts)
@@ -154,7 +155,8 @@ module Yora
       last_log_index = node.last_log_index
 
       if last_log_index >= next_indices[peer]
-        prev_log_index, prev_log_term = node.prev_log(next_indices[peer])
+        prev_log_index = next_indices[peer] - 1
+        prev_log_term = node.log_term(prev_log_index)
 
         if last_log_index - next_indices[peer] > (MAX_LOG_ENTRIES_SENT - 1)
           send_up_to = next_indices[peer] + MAX_LOG_ENTRIES_SENT - 1
@@ -170,8 +172,7 @@ module Yora
           entries: node.slice_log(next_indices[peer]..send_up_to),
           commit_index: node.last_commit
         }
-
-        transmitter.send_message(peer, :append_entries, opts)
+        transmitter.send_message(node.cluster[peer], :append_entries, opts)
 
       elsif heartbeat
         last_log_index = node.last_log_index
@@ -184,12 +185,12 @@ module Yora
           entries: [],
           commit_index: node.last_commit
         }
-        transmitter.send_message(peer, :append_entries, opts)
+        transmitter.send_message(node.cluster[peer], :append_entries, opts)
       end
     end
 
     def update_peer_index(peer, match_index)
-      match_indices[peer] = match_index
+      match_indices[peer] = match_index if match_indices[peer] < match_index
       next_indices[peer] = match_index + 1
     end
 
@@ -201,19 +202,23 @@ module Yora
       current_commit = node.last_commit
       current_term = node.current_term
 
-      eligible = (match_indices.values + [node.last_log_index]).map do |match|
-        node.slice_log(current_commit..match).rindex { |l| l.term == current_term } || 0
+      current_term_match_indices = match_indices.values.map do |match_index|
+        match_index.downto(current_commit).find do
+          |i| node.log_term(i) == current_term
+        end || current_commit
       end
 
-      sorted = eligible.sort
+      current_term_match_indices << node.last_log_index
+
+      sorted = current_term_match_indices.sort
 
       middle = sorted.size >> 1
       middle -= 1 if sorted.size & 1 == 0
 
-      majority_agreed_distance = sorted[middle]
+      majority_agreed_index = sorted[middle]
 
-      if majority_agreed_distance && majority_agreed_distance > 0
-        node.last_commit = current_commit + majority_agreed_distance
+      if majority_agreed_index > current_commit
+        node.last_commit = majority_agreed_index
 
         node.save
         apply_entries
@@ -226,12 +231,13 @@ module Yora
         entry = node.log(i)
         next if entry.config? || entry.noop?
         # $stderr.puts "-- apply #{i} #{entry.to_json}"
-        response = node.handler.on_command(entry.command)
-        transmitter.send_message(entry.client, :command_resp,
-                                 success: true,
-                                 reponse: response,
-                                 commit_index: last_commit,
-                                 applied_index: i)
+
+        response = node.handler.on_command(entry.command, i, entry.term)
+
+        response[:commit_index] = last_commit
+        response[:applied_index] = i
+
+        transmitter.send_message(entry.client, :command_resp, response)
       end
 
       node.last_applied = last_commit

@@ -9,7 +9,7 @@ Metrics/AbcSize:
 
 Metrics/MethodLength:
   CountComments: false
-  Max: 30
+  Max: 40
 
 Metrics/ClassLength:
   CountComments: false

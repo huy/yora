@@ -19,7 +19,7 @@ module Yora
     end
 
     def on_request_vote(opts)
-      reply_to = opts[:peer]
+      reply_to = node.cluster[opts[:peer]]
 
       if valid_vote_request?(opts)
         node.voted_for = opts[:candidate_id]
@@ -34,7 +34,7 @@ module Yora
     end
 
     def on_append_entries(opts)
-      reply_to = opts[:peer]
+      reply_to = node.cluster[opts[:peer]]
       current_term = node.current_term
 
       @election_timeout = @timer.next
@@ -51,10 +51,9 @@ module Yora
 
       node.append_log(*opts[:entries])
 
-      config_entry_index = opts[:entries].rindex(&:config?)
-      if config_entry_index
-        node.cluster = opts[:entries][config_entry_index].cluster
-      end
+      config_location = opts[:entries].rindex(&:config?)
+
+      node.cluster = opts[:entries][config_location].cluster if config_location
 
       node.last_commit = [opts[:commit_index], node.last_log_index].min
 
@@ -67,8 +66,8 @@ module Yora
 
     def inconsistent_log?(opts)
       return true if node.current_term > opts[:term]
-      return true unless node.log(opts[:prev_log_index])
-      return true if node.log(opts[:prev_log_index]).term != opts[:prev_log_term]
+      return true if opts[:prev_log_index] > node.last_log_index
+      return true if node.log_term(opts[:prev_log_index]) != opts[:prev_log_term]
 
       false
     end
@@ -87,7 +86,7 @@ module Yora
       last_commit = node.last_commit
       (node.last_applied + 1).upto(last_commit).each do |i|
         entry = node.log(i)
-        node.handler.on_command(entry.command) unless entry.config?
+        node.handler.on_command(entry.command, i, entry.term) unless entry.config?
       end
 
       node.last_applied = last_commit

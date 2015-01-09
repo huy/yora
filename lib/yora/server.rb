@@ -2,14 +2,12 @@ require 'thread'
 require 'socket'
 require 'json'
 
-require_relative 'message'
-require_relative 'client'
-require_relative 'filestore'
-
 module Yora
   DEFAULT_UDP_PORT = 2358
 
   class Transmitter
+    attr_reader :server
+
     def initialize(server)
       @server = server
     end
@@ -29,20 +27,6 @@ module Yora
 
         @server.out_queue << opts
       end
-    end
-  end
-
-  class EchoHandler
-    def on_command(command)
-      $stderr.puts "handler on_command #{command}"
-
-      command
-    end
-
-    def on_query(query)
-      $stderr.puts "handle on_query #{query}"
-
-      query
     end
   end
 
@@ -73,17 +57,22 @@ module Yora
 
       @transmitter = Transmitter.new(self)
 
-      @handler = EchoHandler.new
+      @persistence = Persistence::SimpleFile.new(node_id, node_address)
+
+      @handler = StateMachine::KeyValueStore.new(@persistence)
+
       @timer = Timer.new(2 * @second_per_tick, 5 * @second_per_tick)
 
-      @node = Node.new(node_id, @transmitter, @handler, @timer,
-                       FileStore.new(node_id, node_address))
+      @node = Node.new(node_id, @transmitter, @handler, @timer, @persistence)
     end
 
     def join
       client = Client.new(@peers.values)
       response = client.command(:join, peer: @node.node_id, peer_address: "#{@host}:#{@port}")
       $stderr.puts "got #{response}"
+
+      node.cluster = response[:cluster]
+      bootstrap
     end
 
     def leave
@@ -144,13 +133,14 @@ module Yora
 
         raw = serialize(msg)
 
-        addr = @node.cluster[msg[:send_to]] || msg[:send_to]
-
-        $stderr.puts "sending #{msg[:message_type]} to #{addr}"
-
-        host, port = addr.split(':')
-
-        _ = socket.send(raw, 0, host, port.to_i)
+        addr = msg[:send_to]
+        if addr
+          host, port = addr.split(':')
+          $stderr.puts "sending #{msg[:message_type]} to #{addr}"
+          _ = socket.send(raw, 0, host, port.to_i)
+        else
+          $stderr.puts "quietly drop #{msg[:message_type]} unknown destination"
+        end
       end
     rescue => ex
       $stderr.puts "error #{ex} in sender thread"
@@ -162,12 +152,14 @@ module Yora
       loop do
         msg = @in_queue.pop
 
-        $stderr.puts "processing #{msg[:message_type]} from #{msg[:client] || msg[:peer]}"
+        $stderr.puts "processing #{msg[:message_type]} term #{msg[:term]} " \
+          "from #{msg[:client] || msg[:peer]}"
 
         @node.dispatch(msg)
 
         expiry = (@node.seconds_until_timeout / @second_per_tick).to_i
-        $stderr.puts "#{@node.role} expires in #{expiry} ticks"
+        $stderr.puts "#{node.role.class}, current term #{node.current_term}, " \
+          "last commit = #{node.last_commit}, expires in #{expiry} ticks"
       end
     rescue => ex
       $stderr.puts "error #{ex} in processor thread"

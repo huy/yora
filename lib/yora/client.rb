@@ -42,6 +42,8 @@ module Yora
 
       msg = deserialize(response)
 
+      $stderr.puts "got #{msg}"
+
       [msg[:leader_id], msg[:leader_addr]]
     end
 
@@ -60,8 +62,7 @@ module Yora
     def query(query)
       $stderr.puts 'query leader'
       _, leader_addr = leader
-
-      send_request(leader_addr, message_type: :query, query: query)
+      send_request(leader_addr, message_type: :query, query: query) if leader_addr
     end
 
     def send_request(addr, request)

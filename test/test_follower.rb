@@ -1,23 +1,9 @@
-require 'test/unit'
 require_relative 'test'
 
-class TestFollower < Test::Unit::TestCase
-  def log_entry(term, command = nil)
-    Yora::LogEntry.new(term, command)
-  end
-
+class TestFollower < Test3Nodes
   def setup
-    @peer = 1
-    @cluster = { 0 => '127.0.0.1:2357', 1 => '127.0.0.1:2358' }
-
-    @handler = Object.new
-    @transmitter = Object.new
-    @timer = StubTimer.new
-    @store = StubStore.new(@cluster)
-    @node = Yora::Node.new(0, @transmitter, @handler, @timer, @store)
+    create_env
   end
-
-  attr_reader :node, :peer, :transmitter, :timer, :handler
 
   ## on_tick
 
@@ -29,12 +15,17 @@ class TestFollower < Test::Unit::TestCase
 
     m = transmitter.mock(:send_message)
 
+    term = node.current_term
+
     node.on_tick
 
-    req = m.args[2]
+    assert_equal 2, m.times_called
 
-    assert_equal 1, m.times_called
-    assert_equal 1, req[:term]
+    req = m.args_called[0][2]
+
+    assert_equal term + 1, node.current_term
+
+    assert_equal term + 1, req[:term]
     assert_equal node.node_id, req[:candidate_id]
     assert_equal 0, req[:last_log_index]
     assert_equal 0, req[:last_log_term]
@@ -133,7 +124,7 @@ class TestFollower < Test::Unit::TestCase
                            entries: [log_entry(0, :b)],
                            commit_index: 2
 
-    assert_equal [:b], m.args
+    assert_equal [:b], m.args[0, 1]
   end
 
   def test_on_append_config_entry_change_cluster_configuration
@@ -143,7 +134,7 @@ class TestFollower < Test::Unit::TestCase
     node.on_append_entries term: 0,
                            prev_log_index: 0,
                            prev_log_term: 0,
-                           entries: [Yora::ConfigLogEntry.new(0, new_cluster)],
+                           entries: [ConfigLogEntry.new(0, new_cluster)],
                            commit_index: 2
 
     assert_equal node.cluster, new_cluster
