@@ -2,20 +2,20 @@ require_relative 'role'
 
 module Yora
   class Candidate
+    include AnyRoles
     include CandidateOrLeader
     include FollowerOrCandidate
 
-    attr_reader :node, :election, :transmitter, :election_timeout
+    attr_reader :node, :election, :election_timeout
 
-    def initialize(node, transmitter, timer)
-      @transmitter = transmitter
-      @timer = timer
+    def initialize(node)
       @node = node
 
       @election = Election.new(node.cluster.size)
-      @election_timeout = @timer.next
+      @election_timeout = timer.next
 
-      node.current_term = node.current_term + 1
+      node.next_term
+
       broadcast_vote_request
     end
 
@@ -26,13 +26,18 @@ module Yora
     def on_append_entries(opts)
       reply_to = node.cluster[opts[:peer]]
       if node.current_term > opts[:term]
-        node.save
         transmitter.send_message(reply_to, :append_entries_resp,
                                  success: false, term: node.current_term)
       else
-        node.role = Follower.new(node, node.transmitter, node.timer)
+        node.role = Follower.new(node)
         node.on_append_entries(opts)
       end
+    end
+
+    def on_install_snapshot(_)
+    end
+
+    def on_install_snapshot_resp(_)
     end
 
     def broadcast_vote_request
@@ -53,7 +58,7 @@ module Yora
 
     def update_election(opts)
       election.receive_vote(opts[:peer], opts)
-      node.role = Leader.new(node, node.transmitter) if election.won?
+      node.role = Leader.new(node) if election.won?
     end
   end
 end

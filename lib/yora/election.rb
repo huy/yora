@@ -20,17 +20,8 @@ module Yora
       @votes.values.inject(0) { |a, e| a + (e[:vote_granted] ? 1 : 0) }
     end
 
-    def over?
-      @votes.size >= @majority
-    end
-
     def won?
       granted_votes >= @majority
-    end
-
-    def highest_term
-      return nil if @votes.empty?
-      @votes.values.map { |vote| vote[:term] }.max
     end
 
     def receive_vote(node, opts)

@@ -3,7 +3,7 @@ require_relative 'test'
 class TestCandidate < Test3Nodes
   def setup
     create_env
-    node.role = Candidate.new(node, transmitter, timer)
+    node.role = Candidate.new(node)
   end
 
   def test_broadcast_vote_request_sends_to_all_peers
@@ -30,8 +30,6 @@ class TestCandidate < Test3Nodes
   end
 
   def test_on_request_vote_resp_won_election_become_leader
-    transmitter.mock(:send_message)
-
     node.on_request_vote_resp(peer: peer, term: node.current_term, vote_granted: true)
     node.on_request_vote_resp(peer: other_peer, term: node.current_term, vote_granted: true)
 
@@ -49,10 +47,10 @@ class TestCandidate < Test3Nodes
   def test_on_request_vote_doesnt_reset_timer_even_if_log_check_fails
     node.append_log(log_entry(1, :foo))
 
-    n = transmitter.mock(:send_message)
+    m = transmitter.mock(:send_message)
 
     node.on_request_vote term: 2, candidate_id: 1, last_log_index: 1, last_log_term: 0
-    res = n.args[2]
+    res = m.args[2]
 
     assert_equal false, res[:vote_granted]
   end

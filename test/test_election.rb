@@ -52,43 +52,4 @@ class TestElection < Test::Unit::TestCase
 
     assert_equal 1, e.granted_votes
   end
-
-  def test_receive_vote_triggers_over
-    assert !e.over?
-
-    e.receive_vote 1, term: 0, vote_granted: true
-    e.receive_vote 2, term: 0, vote_granted: true
-
-    assert e.over?
-  end
-
-  def test_receive_vote_triggers_over_when_losing
-    assert !e.over?
-
-    e.receive_vote 1, term: 0, vote_granted: false
-    e.receive_vote 2, term: 0, vote_granted: false
-
-    assert e.over?
-  end
-
-  def test_receive_vote_updates_highest_term
-    assert_nil e.highest_term
-
-    e.receive_vote 1, term: 1
-
-    assert_equal 1, e.highest_term
-
-    e.receive_vote 2, term: 2
-
-    assert_equal 2, e.highest_term
-  end
-
-  def test_receive_vote_updates_highest_term_only_upward
-    assert_nil e.highest_term
-
-    e.receive_vote 1, term: 1
-    e.receive_vote 2, term: 0
-
-    assert_equal 1, e.highest_term
-  end
 end

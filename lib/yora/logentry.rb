@@ -31,6 +31,10 @@ module Yora
     def noop?
       @command.nil?
     end
+
+    def ==(other)
+      term == other.term && command == other.command && client == other.client
+    end
   end
 
   class ConfigLogEntry

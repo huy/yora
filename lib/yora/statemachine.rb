@@ -1,7 +1,7 @@
 module Yora
   module StateMachine
     class Echo
-      attr_reader :last_included_index, :last_included_term
+      attr_accessor :last_included_index, :last_included_term, :data
 
       def initialize(persistence)
         snapshot = persistence.read_snapshot
@@ -10,7 +10,7 @@ module Yora
         @last_included_term = snapshot[:last_included_term]
       end
 
-      def on_command(command_str, _applied_index, _applied_term)
+      def on_command(command_str)
         $stderr.puts "handler on_command '#{command_str}'"
 
         { success: true, data: command_str }
@@ -28,21 +28,21 @@ module Yora
     end
 
     class KeyValueStore
-      attr_reader :last_included_index, :last_included_term
+      attr_accessor :last_included_index, :last_included_term, :data
 
       def initialize(persistence)
         snapshot = persistence.read_snapshot
 
-        @kv = snapshot[:data] || {}
+        @data = snapshot[:data] || {}
         @last_included_index = snapshot[:last_included_index]
         @last_included_term = snapshot[:last_included_term]
       end
 
       def take_snapshot
-        Hash[@kv]
+        Hash[@data]
       end
 
-      def on_command(command_str, _applied_index, _applied_term)
+      def on_command(command_str)
         $stderr.puts "handle on_command '#{command_str}'"
         if command_str
           cmd, args = command_str.split
@@ -51,7 +51,7 @@ module Yora
             k, v = args.split('=')
             $stderr.puts "-- k = #{k}, v = #{v}"
             if k && v
-              @kv[k] = v
+              @data[k] = v
 
               return { success: true }
             end
@@ -67,7 +67,7 @@ module Yora
           query, args = query_str.split
           if query == 'get'
             k = args
-            return { :success => true, k => @kv[k] }
+            return { :success => true, k => @data[k] }
           end
         end
         { success: false }

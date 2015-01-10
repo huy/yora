@@ -2,12 +2,12 @@ require_relative 'role'
 
 module Yora
   class Leader
+    include AnyRoles
     include CandidateOrLeader
 
-    attr_reader :node, :transmitter, :next_indices, :match_indices
+    attr_reader :node, :next_indices, :match_indices
 
-    def initialize(node, transmitter)
-      @transmitter = transmitter
+    def initialize(node)
       @node = node
       @match_indices = Hash[peers.map { |peer| [peer, 0] }]
       node.leader_id = node.node_id
@@ -22,10 +22,10 @@ module Yora
       end
     end
 
-    def on_append_entries(_opts)
+    def on_append_entries(_)
     end
 
-    def on_request_vote_resp(_opts)
+    def on_request_vote_resp(_)
     end
 
     def on_append_entries_resp(opts)
@@ -40,8 +40,19 @@ module Yora
 
       else
         decrement_next_index(peer)
-        send_entries(peer)
+        if next_indices[peer] >= node.first_log_index
+          send_entries(peer)
+        else
+          send_snapshot(peer)
+        end
       end
+    end
+
+    def on_install_snapshot(_)
+    end
+
+    def on_install_snapshot_resp(opts)
+      on_append_entries_resp(opts)
     end
 
     def on_client_command(opts)
@@ -114,6 +125,7 @@ module Yora
                                cluster: node.cluster)
 
       node.append_log(entry)
+
       broadcast_entries(false)
     end
 
@@ -147,11 +159,43 @@ module Yora
 
     def broadcast_entries(heartbeat = false)
       peers.each do |peer|
-        send_entries(peer, heartbeat)
+        if next_indices[peer] >= node.first_log_index
+          send_entries(peer, heartbeat)
+        else
+          send_snapshot(peer)
+        end
       end
     end
 
     def send_entries(peer, heartbeat = false)
+      prev_log_index, prev_log_term, entries = get_peer_entries(peer)
+
+      if (!entries.empty?) || heartbeat
+        opts = {
+          term: node.current_term,
+          leader_id: node.node_id,
+          prev_log_index: prev_log_index,
+          prev_log_term: prev_log_term,
+          entries: entries,
+          commit_index: node.last_commit
+        }
+        transmitter.send_message(node.cluster[peer], :append_entries, opts)
+      end
+    end
+
+    def send_snapshot(peer)
+      snapshot = persistence.read_snapshot
+
+      transmitter.send_message(node.cluster[peer], :install_snapshot,
+                               term: node.current_term,
+                               leader_id: node.node_id,
+                               last_included_index: snapshot[:last_included_index],
+                               last_included_term: snapshot[:last_included_term],
+                               data: snapshot[:data]
+      )
+    end
+
+    def get_peer_entries(peer)
       last_log_index = node.last_log_index
 
       if last_log_index >= next_indices[peer]
@@ -163,29 +207,9 @@ module Yora
         else
           send_up_to = last_log_index
         end
-
-        opts = {
-          term: node.current_term,
-          leader_id: node.node_id,
-          prev_log_index: prev_log_index,
-          prev_log_term: prev_log_term,
-          entries: node.slice_log(next_indices[peer]..send_up_to),
-          commit_index: node.last_commit
-        }
-        transmitter.send_message(node.cluster[peer], :append_entries, opts)
-
-      elsif heartbeat
-        last_log_index = node.last_log_index
-        last_log_term = node.last_log_term
-        opts = {
-          term: node.current_term,
-          leader_id: node.node_id,
-          prev_log_index: last_log_index,
-          prev_log_term: last_log_term,
-          entries: [],
-          commit_index: node.last_commit
-        }
-        transmitter.send_message(node.cluster[peer], :append_entries, opts)
+        [prev_log_index, prev_log_term, node.slice_log(next_indices[peer]..send_up_to)]
+      else
+        [last_log_index, node.last_log_term, []]
       end
     end
 
@@ -203,8 +227,8 @@ module Yora
       current_term = node.current_term
 
       current_term_match_indices = match_indices.values.map do |match_index|
-        match_index.downto(current_commit).find do
-          |i| node.log_term(i) == current_term
+        match_index.downto(current_commit).find do |i|
+          node.log_term(i) == current_term
         end || current_commit
       end
 
@@ -220,19 +244,21 @@ module Yora
       if majority_agreed_index > current_commit
         node.last_commit = majority_agreed_index
 
-        node.save
         apply_entries
       end
     end
 
     def apply_entries
       last_commit = node.last_commit
+
+      return if last_commit <= node.last_applied
+
       (node.last_applied + 1).upto(last_commit).each do |i|
         entry = node.log(i)
         next if entry.config? || entry.noop?
         # $stderr.puts "-- apply #{i} #{entry.to_json}"
 
-        response = node.handler.on_command(entry.command, i, entry.term)
+        response = node.handler.on_command(entry.command)
 
         response[:commit_index] = last_commit
         response[:applied_index] = i
@@ -241,6 +267,7 @@ module Yora
       end
 
       node.last_applied = last_commit
+      node.save
     end
 
     def seconds_until_timeout

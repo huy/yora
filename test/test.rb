@@ -5,7 +5,7 @@ require_relative '../lib/yora'
 
 module Yora
   class Node
-    attr_writer :log, :role
+    attr_writer :log, :role, :current_term
     attr_reader :log_entries, :start_log_index
   end
 
@@ -69,7 +69,7 @@ end
 
 class Test3Nodes < Test::Unit::TestCase
   attr_reader :node, :peer, :peer_addr, :other_peer, :other_peer_addr
-  attr_reader :timer, :transmitter, :handler
+  attr_reader :timer, :transmitter, :handler, :persistence
 
   include Yora
 
