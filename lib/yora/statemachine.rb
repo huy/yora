@@ -1,13 +1,9 @@
 module Yora
   module StateMachine
     class Echo
-      attr_accessor :last_included_index, :last_included_term, :data
+      attr_accessor :data
 
-      def initialize(persistence)
-        snapshot = persistence.read_snapshot
-
-        @last_included_index = snapshot[:last_included_index]
-        @last_included_term = snapshot[:last_included_term]
+      def initialize
       end
 
       def on_command(command_str)
@@ -28,14 +24,8 @@ module Yora
     end
 
     class KeyValueStore
-      attr_accessor :last_included_index, :last_included_term, :data
-
-      def initialize(persistence)
-        snapshot = persistence.read_snapshot
-
-        @data = snapshot[:data] || {}
-        @last_included_index = snapshot[:last_included_index]
-        @last_included_term = snapshot[:last_included_term]
+      def initialize(data)
+        @data = data || {}
       end
 
       def take_snapshot

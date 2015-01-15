@@ -45,7 +45,7 @@ class TestCandidate < Test3Nodes
   end
 
   def test_on_request_vote_doesnt_reset_timer_even_if_log_check_fails
-    node.append_log(log_entry(1, :foo))
+    node.log_container.append(log_entry(1, :foo))
 
     m = transmitter.mock(:send_message)
 

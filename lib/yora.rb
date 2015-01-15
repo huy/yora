@@ -1,4 +1,5 @@
 require_relative 'yora/logentry'
+require_relative 'yora/logcontainer'
 require_relative 'yora/follower'
 require_relative 'yora/candidate'
 require_relative 'yora/leader'

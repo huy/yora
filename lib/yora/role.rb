@@ -1,6 +1,4 @@
 module Yora
-  MAX_LOG_ENTRIES_SENT = 16
-
   module AnyRoles
     def timer
       node.timer

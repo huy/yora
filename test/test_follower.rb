@@ -67,7 +67,7 @@ class TestFollower < Test3Nodes
   end
 
   def test_on_append_entries_fails_if_prev_term_check_fails
-    node.append_log(log_entry(1, :a))
+    node.log_container.append(log_entry(1, :a))
 
     m = transmitter.mock(:send_message)
 
@@ -80,7 +80,7 @@ class TestFollower < Test3Nodes
   end
 
   def test_on_append_entries_discard_conflicting_entries_before_appending
-    node.append_log(log_entry(0, :a), log_entry(0, :b))
+    node.log_container.append(log_entry(0, :a), log_entry(0, :b))
 
     node.on_append_entries term: 1,
                            prev_log_index: 0,
@@ -88,9 +88,9 @@ class TestFollower < Test3Nodes
                            entries: [log_entry(1, :c)],
                            commit_index: 1
 
-    assert_equal 1, node.last_log_index
-    assert_equal 1, node.last_log_term
-    assert_equal :c, node.log(node.last_log_index).command
+    assert_equal 1, node.log_container.last_index
+    assert_equal 1, node.log_container.last_term
+    assert_equal :c, node.log_container[node.log_container.last_index].command
   end
 
   def test_on_append_entries_apply_entries
@@ -106,8 +106,8 @@ class TestFollower < Test3Nodes
   end
 
   def test_on_append_entries_doesnt_reapply_already_applied_entries
-    node.append_log(log_entry(0, :a))
-    node.last_applied = 1
+    node.log_container.append(log_entry(0, :a))
+    node.log_container.last_applied = 1
 
     m = handler.mock(:on_command)
     node.on_append_entries term: 1,
@@ -132,9 +132,10 @@ class TestFollower < Test3Nodes
   end
 
   def test_on_append_entries_take_snapshot_when_exceeding_max_log
-    node.append_log(log_entry(0, :a))
+    node.log_container.append(log_entry(0, :a))
 
-    def node.max_log_entries
+    log_container = node.log_container
+    def log_container.max_entries
       2
     end
 
@@ -146,14 +147,14 @@ class TestFollower < Test3Nodes
                            entries: [log_entry(0, :b), log_entry(0, :c), log_entry(1, :d)],
                            commit_index: 3
 
-    assert_equal 3, node.last_commit
-    assert_equal 3, node.last_applied
+    assert_equal 3, node.log_container.last_commit
+    assert_equal 3, node.log_container.last_applied
     assert_equal 1, m.times_called
-    assert_equal [log_entry(1, :d)], node.log_entries
-    assert_equal 4, node.first_log_index
+    assert_equal [log_entry(1, :d)], node.log_container.entries
+    assert_equal 4, node.log_container.first_index
 
-    assert_equal 3, handler.last_included_index
-    assert_equal 0, handler.last_included_term
+    assert_equal 3, log_container.snapshot_last_included_index
+    assert_equal 0, log_container.snapshot_last_included_term
   end
 
   ## on_request_vote
@@ -214,7 +215,7 @@ class TestFollower < Test3Nodes
   end
 
   def test_on_request_vote_fails_if_local_log_last_entry_has_higher_term
-    node.append_log(log_entry(1, :a))
+    node.log_container.append(log_entry(1, :a))
 
     m = transmitter.mock(:send_message)
     node.on_request_vote term: 2, candidate_id: 2, last_log_index: 1, last_log_term: 0
@@ -224,7 +225,7 @@ class TestFollower < Test3Nodes
   end
 
   def test_on_request_vote_fails_if_local_log_is_longer
-    node.append_log(log_entry(0, :a))
+    node.log_container.append(log_entry(0, :a))
 
     m = transmitter.mock(:send_message)
 
@@ -258,11 +259,11 @@ class TestFollower < Test3Nodes
                              data: { 'abc' => 1 }
 
     assert_equal 1, m.times_called
-    assert_equal 1, handler.last_included_term
-    assert_equal 129, handler.last_included_index
+    assert_equal 1, node.log_container.snapshot_last_included_term
+    assert_equal 129, node.log_container.snapshot_last_included_index
 
-    assert_equal [], node.log_entries
-    assert_equal 129, node.last_applied
-    assert_equal 129, node.last_commit
+    assert_equal [], node.log_container.entries
+    assert_equal 129, node.log_container.last_applied
+    assert_equal 129, node.log_container.last_commit
   end
 end

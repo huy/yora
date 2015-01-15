@@ -10,7 +10,7 @@ class TestLeader < Test3Nodes
       node.on_append_entries_resp(peer: p,
                                   success: true,
                                   term: node.current_term,
-                                  match_index: node.last_log_index)
+                                  match_index: node.log_container.last_index)
     end
   end
 
@@ -18,13 +18,13 @@ class TestLeader < Test3Nodes
     node.role.next_indices[peer] = 0
     node.role.reset_index
 
-    assert_equal node.last_log_index + 1, node.role.next_indices[peer]
+    assert_equal node.log_container.last_index + 1, node.role.next_indices[peer]
   end
 
   ## broadcast_entries
 
   def test_broadcast_entries_calls_transmit
-    node.append_log(log_entry(0, :foo))
+    node.log_container.append(log_entry(0, :foo))
 
     m = transmitter.mock(:send_message)
     node.role.broadcast_entries
@@ -42,18 +42,18 @@ class TestLeader < Test3Nodes
 
   def test_broadcast_entries_heartbeat_send_empty_if_peers_up_to_date
     m = transmitter.mock(:send_message)
-    node.role.next_indices[peer] = node.last_log_index + 1
-    node.role.next_indices[other_peer] = node.last_log_index + 1
+    node.role.next_indices[peer] = node.log_container.last_index + 1
+    node.role.next_indices[other_peer] = node.log_container.last_index + 1
 
     node.role.broadcast_entries(true)
 
     opts = {
       term: node.current_term,
       leader_id: node.node_id,
-      prev_log_index: node.last_log_index,
+      prev_log_index: node.log_container.last_index,
       prev_log_term: node.current_term,
       entries: [],
-      commit_index: node.last_commit
+      commit_index: node.log_container.last_commit
     }
 
     assert_equal [peer_addr, :append_entries, opts], m.args_called[0][0, 3]
@@ -63,7 +63,7 @@ class TestLeader < Test3Nodes
   def test_broadcast_entries_includes_data_about_previous_log_entry
     entries = [log_entry(0, :foo), log_entry(0, :bar)]
 
-    node.append_log(*entries)
+    node.log_container.append(*entries)
     m = transmitter.mock(:send_message)
 
     node.role.broadcast_entries
@@ -74,7 +74,7 @@ class TestLeader < Test3Nodes
       prev_log_index: 1,
       prev_log_term: 0,
       entries: entries,
-      commit_index: node.last_commit
+      commit_index: node.log_container.last_commit
     }
 
     assert_equal [peer_addr, :append_entries, opts], m.args_called[0][0, 3]
@@ -84,9 +84,9 @@ class TestLeader < Test3Nodes
   def test_broadcast_entries_sends_to_all_peers
     other_peer = '2'
     @cluster[other_peer] = '127.0.0.1:2359'
-    node.role.update_peer_index(other_peer, node.last_log_index)
+    node.role.update_peer_index(other_peer, node.log_container.last_index)
 
-    node.append_log(log_entry(0, :foo))
+    node.log_container.append(log_entry(0, :foo))
 
     m = transmitter.mock(:send_message)
     node.role.broadcast_entries(false)
@@ -98,8 +98,8 @@ class TestLeader < Test3Nodes
       leader_id: node.node_id,
       prev_log_index: 1,
       prev_log_term: 0,
-      entries: [node.log(node.last_log_index)],
-      commit_index: node.last_commit
+      entries: [node.log_container[node.log_container.last_index]],
+      commit_index: node.log_container.last_commit
     }
 
     assert_equal [peer_addr, :append_entries, opts], m.args_called[0][0, 3]
@@ -118,7 +118,7 @@ class TestLeader < Test3Nodes
   end
 
   def test_on_append_entries_resp_decrement_next_index_and_retry_when_fail
-    node.append_log(log_entry(0, :foo),
+    node.log_container.append(log_entry(0, :foo),
                     log_entry(0, :bar))
 
     node.role.next_indices[peer] = 2
@@ -144,27 +144,27 @@ class TestLeader < Test3Nodes
   end
 
   def test_on_append_entries_resp_advance_commit_and_apply_on_majority_success
-    node.append_log(log_entry(0, :foo))
+    node.log_container.append(log_entry(0, :foo))
 
     node.on_append_entries_resp(peer: peer, term: 0, success: true,
-                                match_index: node.last_log_index)
+                                match_index: node.log_container.last_index)
 
-    assert_equal node.last_log_index, node.last_commit
-    assert_equal node.last_log_index, node.last_applied
+    assert_equal node.log_container.last_index, node.log_container.last_commit
+    assert_equal node.log_container.last_index, node.log_container.last_applied
   end
 
   def test_on_append_entries_resp_become_follower_if_receive_higher_term
     node.on_append_entries_resp(peer: peer, term: 1, success: false,
-                                match_index: node.last_log_index)
+                                match_index: node.log_container.last_index)
 
     assert_equal Yora::Follower, node.role.class
   end
 
   def test_on_append_entries_resp_send_snapshot_when_next_index_pass_first_index
-    node.append_log(log_entry(0, :foo))
+    node.log_container.append(log_entry(0, :foo))
 
-    handler.last_included_index = 129
-    handler.last_included_term = 0
+    node.log_container.snapshot_last_included_index = 129
+    node.log_container.snapshot_last_included_term = 0
 
     node.role.next_indices[peer] = 130
 
@@ -190,8 +190,8 @@ class TestLeader < Test3Nodes
   def test_on_client_command_append_to_log
     node.on_client_command(command: :foo, client: '127.0.0.1:5555')
 
-    assert_equal :foo, node.log(node.last_log_index).command
-    assert_equal 0, node.log(node.last_log_index).term
+    assert_equal :foo, node.log_container[node.log_container.last_index].command
+    assert_equal 0, node.log_container[node.log_container.last_index].term
   end
 
   def test_on_client_command_transmits_command
@@ -224,51 +224,51 @@ class TestLeader < Test3Nodes
                            peer_address: '127.0.0.1:2359')
 
     assert_equal '127.0.0.1:2359', node.cluster[new_peer]
-    assert_equal true, node.reconfiguration_pending?
+    assert_equal true, node.log_container.reconfiguration_pending?
 
-    node.last_commit = node.last_log_index
-    assert_equal false, node.reconfiguration_pending?
+    node.log_container.last_commit = node.log_container.last_index
+    assert_equal false, node.log_container.reconfiguration_pending?
   end
 
   def test_leave_command_change_cluster_configuration
     node.on_client_command(command: 'leave', peer: peer)
 
     assert_equal nil, node.cluster[peer]
-    assert_equal node.cluster, node.log(node.last_log_index).cluster
+    assert_equal node.cluster, node.log_container[node.log_container.last_index].cluster
   end
 
   ## advance_commit_index
 
   def test_commit_entries_does_nothing_when_no_majority
-    node.append_log(log_entry(0, :foo),
+    node.log_container.append(log_entry(0, :foo),
                     log_entry(0, :bar))
 
-    commit = node.last_commit
+    commit = node.log_container.last_commit
 
     node.role.commit_entries
 
-    assert_equal commit, node.last_commit
+    assert_equal commit, node.log_container.last_commit
   end
 
   def test_commit_entries_advance_to_the_one_before_last_log
-    node.append_log(log_entry(0, :foo),
+    node.log_container.append(log_entry(0, :foo),
                     log_entry(0, :bar))
 
-    node.role.match_indices[peer] = node.last_log_index - 1
+    node.role.match_indices[peer] = node.log_container.last_index - 1
 
     node.role.commit_entries
 
-    assert_equal node.last_log_index - 1, node.last_commit
+    assert_equal node.log_container.last_index - 1, node.log_container.last_commit
   end
 
   def test_commit_entries_advance_to_last_log
-    node.append_log(log_entry(0, :foo),
+    node.log_container.append(log_entry(0, :foo),
                     log_entry(0, :bar))
 
-    node.role.match_indices[other_peer] = node.last_log_index
+    node.role.match_indices[other_peer] = node.log_container.last_index
 
     node.role.commit_entries
 
-    assert_equal node.last_log_index, node.last_commit
+    assert_equal node.log_container.last_index, node.log_container.last_commit
   end
 end

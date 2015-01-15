@@ -42,14 +42,11 @@ module Yora
 
     def broadcast_vote_request
       peers.each do |peer|
-        last_log_index = node.last_log_index
-        last_log_term = node.last_log_term
-
         opts = {
           term: node.current_term,
           candidate_id: node.node_id,
-          last_log_index: last_log_index,
-          last_log_term: last_log_term
+          last_log_index: node.log_container.last_index,
+          last_log_term: node.log_container.last_term
         }
 
         transmitter.send_message(node.cluster[peer], :request_vote, opts)

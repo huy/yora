@@ -2,6 +2,8 @@ require 'thread'
 require 'socket'
 require 'json'
 
+require_relative 'message'
+
 module Yora
   DEFAULT_UDP_PORT = 2358
 
@@ -59,7 +61,9 @@ module Yora
 
       @persistence = Persistence::SimpleFile.new(node_id, node_address)
 
-      @handler = StateMachine::KeyValueStore.new(@persistence)
+      snapshot = @persistence.read_snapshot
+
+      @handler = StateMachine::KeyValueStore.new(snapshot[:data])
 
       @timer = Timer.new(2 * @second_per_tick, 5 * @second_per_tick)
 

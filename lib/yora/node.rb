@@ -15,21 +15,22 @@ module Yora
       @voted_for = metadata[:voted_for]
       @cluster = metadata[:cluster]
 
-      @log_entries = @persistence.read_log_entries
+      snapshot = @persistence.read_snapshot
+      entries = @persistence.read_log_entries
 
-      @log_entries.each do |entry|
-        @cluster = entry.cluster if entry.config?
-      end
+      @log_container = LogContainer.new(
+        snapshot[:last_included_index],
+        snapshot[:last_included_term],
+        entries)
 
-      @last_commit = handler.last_included_index
-      @last_applied = handler.last_included_index
+      config = @log_container.config
+      @cluster = config.cluster if config
 
       @role = Follower.new(self)
     end
 
     attr_reader :node_id, :handler, :timer, :transmitter, :current_term, :persistence
-    attr_accessor :role, :last_commit, :last_applied, :leader_id
-    attr_accessor :voted_for, :cluster
+    attr_accessor :role, :leader_id, :voted_for, :cluster, :log_container
 
     def dispatch(opts)
       case opts[:message_type].to_sym
@@ -119,46 +120,6 @@ module Yora
       @role.seconds_until_timeout
     end
 
-    def first_log_index
-      handler.last_included_index + 1
-    end
-
-    def last_log_index
-      first_log_index + @log_entries.size - 1
-    end
-
-    def log(index)
-      @log_entries[index - first_log_index]
-    end
-
-    def log_term(index)
-      return log(index).term if index >= first_log_index
-      return @handler.last_included_term if index == first_log_index - 1
-
-      fail "invalid call log_term of #{index}"
-    end
-
-    def last_log_term
-      if @log_entries.empty?
-        @handler.last_included_term
-      else
-        @log_entries.last.term
-      end
-    end
-
-    def truncate_log(index)
-      from = (index - first_log_index + 1)
-      @log_entries[from..-1] = []
-    end
-
-    def append_log(*entry)
-      @log_entries.concat(entry)
-    end
-
-    def slice_log(range)
-      @log_entries.slice((range.first - first_log_index)..(range.last - first_log_index))
-    end
-
     def leader_addr
       @cluster[@leader_id]
     end
@@ -167,23 +128,11 @@ module Yora
       @current_term += 1
     end
 
-    def reconfiguration_pending?
-      return true if last_log_index.downto(last_commit + 1).find { |i| log(i).config? }
-      false
-    end
-
-    def max_log_entries
-      MAX_LOG_ENTRIES
-    end
-
-    def log_exceed_limit?
-      (@last_applied - first_log_index + 1) > max_log_entries
-    end
-
     def save
-      if log_exceed_limit?
-        last_included_index = @last_applied
-        last_included_term = log_term(@last_applied)
+      if @log_container.exceed_limit?
+
+        last_included_index = log_container.last_applied
+        last_included_term = log_container.last_applied_term
 
         @persistence.save_snapshot(
           last_included_index: last_included_index,
@@ -191,13 +140,10 @@ module Yora
           data: @handler.take_snapshot
         )
 
-        @log_entries = @log_entries.drop(@last_applied - first_log_index + 1)
-
-        @handler.last_included_index = last_included_index
-        @handler.last_included_term = last_included_term
+        @log_container.drop_util_last_applied
       end
 
-      @persistence.save_log_entries(@log_entries)
+      @persistence.save_log_entries(@log_container.entries)
       @persistence.save_metadata(@current_term, @voted_for, @cluster)
     end
   end

@@ -86,7 +86,7 @@ class Test3Nodes < Test::Unit::TestCase
     }
 
     @persistence = StubPersistence.new(@cluster)
-    @handler = StateMachine::Echo.new(@persistence)
+    @handler = StateMachine::Echo.new
     @transmitter = StubTransmitter.new
     @timer = StubTimer.new
     @node = Node.new('0', @transmitter, @handler, @timer, @persistence)
