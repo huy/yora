@@ -162,8 +162,9 @@ module Yora
         @node.dispatch(msg)
 
         expiry = (@node.seconds_until_timeout / @second_per_tick).to_i
-        $stderr.puts "#{node.role.class}, current term #{node.current_term}, " \
-          "last commit = #{node.last_commit}, expires in #{expiry} ticks"
+        $stderr.puts "#{node.role.class}, term = #{node.current_term}, " \
+          "cluster = #{node.cluster}, commit = #{node.last_commit}, " \
+          "expires in #{expiry} ticks"
       end
     rescue => ex
       $stderr.puts "error #{ex} in processor thread"

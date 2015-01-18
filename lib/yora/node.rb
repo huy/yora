@@ -128,6 +128,10 @@ module Yora
       @current_term += 1
     end
 
+    def last_commit
+      @log_container.last_commit
+    end
+
     def save
       if @log_container.exceed_limit?
 

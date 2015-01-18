@@ -1,11 +1,11 @@
 module Yora
-
   class LogContainer
     MAX_ENTRIES = 128
     MAX_PER_RPC = 16
 
     attr_reader :entries
-    attr_accessor :last_commit, :last_applied, :snapshot_last_included_index, :snapshot_last_included_term
+    attr_accessor :last_commit, :last_applied
+    attr_accessor :snapshot_last_included_index, :snapshot_last_included_term
 
     def initialize(snapshot_last_included_index = 0, snapshot_last_included_term = 0, entries = [])
       @snapshot_last_included_index = snapshot_last_included_index
@@ -57,9 +57,9 @@ module Yora
     end
 
     def drop_util_last_applied
-        @entries = @entries.drop(last_applied - first_index + 1)
-        @snapshot_last_included_index = last_applied
-        @snapshot_last_included_term = term(last_applied)
+      @entries = @entries.drop(last_applied - first_index + 1)
+      @snapshot_last_included_index = last_applied
+      @snapshot_last_included_term = term(last_applied)
     end
 
     def slice(range)

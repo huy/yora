@@ -25,6 +25,9 @@ module Yora
         if File.exist?(@metadata_path)
           metadata = deserialize(File.read(@metadata_path))
         end
+
+        $stderr.puts "-- metadata = #{metadata}"
+
         metadata
       end
 
@@ -35,6 +38,8 @@ module Yora
             log_entries << deserialize(line, false)
           end
         end
+        $stderr.puts "-- log_entries = #{log_entries}"
+
         log_entries
       end
 
@@ -48,6 +53,8 @@ module Yora
         if File.exist?(@snapshot_path)
           snapshot = deserialize(File.read(@snapshot_path))
         end
+        $stderr.puts "-- snapshot = #{snapshot}"
+
         snapshot
       end
 

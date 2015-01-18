@@ -56,7 +56,8 @@ module Yora
       end
 
       transmitter.send_message(reply_to, :append_entries_resp,
-                               success: true, term: current_term, match_index: node.log_container.last_index)
+                               success: true, term: current_term,
+                               match_index: node.log_container.last_index)
     end
 
     def on_install_snapshot(opts)
@@ -87,7 +88,7 @@ module Yora
     end
 
     def inconsistent_log?(opts)
-      ! include_log?(opts[:prev_log_index], opts[:prev_log_term])
+      !include_log?(opts[:prev_log_index], opts[:prev_log_term])
     end
 
     def include_log?(index, term)
@@ -115,6 +116,5 @@ module Yora
       index = entries.rindex(&:config?)
       node.cluster = entries[index].cluster if index
     end
-
   end
 end

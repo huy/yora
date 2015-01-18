@@ -119,7 +119,7 @@ class TestLeader < Test3Nodes
 
   def test_on_append_entries_resp_decrement_next_index_and_retry_when_fail
     node.log_container.append(log_entry(0, :foo),
-                    log_entry(0, :bar))
+                              log_entry(0, :bar))
 
     node.role.next_indices[peer] = 2
     node.role.match_indices[peer] = 1
@@ -241,7 +241,7 @@ class TestLeader < Test3Nodes
 
   def test_commit_entries_does_nothing_when_no_majority
     node.log_container.append(log_entry(0, :foo),
-                    log_entry(0, :bar))
+                              log_entry(0, :bar))
 
     commit = node.log_container.last_commit
 
@@ -252,7 +252,7 @@ class TestLeader < Test3Nodes
 
   def test_commit_entries_advance_to_the_one_before_last_log
     node.log_container.append(log_entry(0, :foo),
-                    log_entry(0, :bar))
+                              log_entry(0, :bar))
 
     node.role.match_indices[peer] = node.log_container.last_index - 1
 
@@ -263,7 +263,7 @@ class TestLeader < Test3Nodes
 
   def test_commit_entries_advance_to_last_log
     node.log_container.append(log_entry(0, :foo),
-                    log_entry(0, :bar))
+                              log_entry(0, :bar))
 
     node.role.match_indices[other_peer] = node.log_container.last_index
 

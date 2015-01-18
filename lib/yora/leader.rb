@@ -205,26 +205,11 @@ module Yora
     end
 
     def commit_entries
-      current_commit = node.log_container.last_commit
-      current_term = node.current_term
+      new_commit = ReplicaCounter.new(node.log_container,
+                                      match_indices, node.current_term).majority_agreed_commit
 
-      current_term_match_indices = match_indices.values.map do |match_index|
-        match_index.downto(current_commit).find do |i|
-          node.log_container.term(i) == current_term
-        end || current_commit
-      end
-
-      current_term_match_indices << node.log_container.last_index
-
-      sorted = current_term_match_indices.sort
-
-      middle = sorted.size >> 1
-      middle -= 1 if sorted.size & 1 == 0
-
-      majority_agreed_index = sorted[middle]
-
-      if majority_agreed_index > current_commit
-        node.log_container.last_commit = majority_agreed_index
+      if new_commit > node.log_container.last_commit
+        node.log_container.last_commit = new_commit
 
         apply_entries
       end
