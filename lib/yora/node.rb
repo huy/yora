@@ -24,6 +24,7 @@ module Yora
         entries)
 
       config = @log_container.config
+
       @cluster = config.cluster if config
 
       @role = Follower.new(self)

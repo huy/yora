@@ -72,7 +72,10 @@ module Yora
     end
 
     def config
-      last_index.downto(first_index).find { |i| self[i].config? }
+      last_index.downto(first_index).each do |i|
+        return self[i] if self[i].config?
+      end
+      nil
     end
 
     def max_entries

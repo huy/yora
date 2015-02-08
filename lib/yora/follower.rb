@@ -13,23 +13,22 @@ module Yora
     end
 
     def on_request_vote(opts)
-      reply_to = node.cluster[opts[:peer]]
+      reply_to = cluster[opts[:peer]]
 
       if valid_vote_request?(opts)
         node.voted_for = opts[:candidate_id]
 
         node.save
         transmitter.send_message(reply_to, :request_vote_resp,
-                                 term: node.current_term, vote_granted: true)
+                                 term: current_term, vote_granted: true)
       else
         transmitter.send_message(reply_to, :request_vote_resp,
-                                 term: node.current_term, vote_granted: false)
+                                 term: current_term, vote_granted: false)
       end
     end
 
     def on_append_entries(opts)
-      reply_to = node.cluster[opts[:peer]]
-      current_term = node.current_term
+      reply_to = cluster[opts[:peer]]
 
       @election_timeout = timer.next
 
@@ -44,12 +43,12 @@ module Yora
 
         accept_new_config_if_any(opts[:entries])
 
-        node.log_container.replace_from(opts[:prev_log_index], opts[:entries])
+        log_container.replace_from(opts[:prev_log_index], opts[:entries])
 
-        node.log_container.advance_commit_to(opts[:commit_index])
+        log_container.advance_commit_to(opts[:commit_index])
 
-        node.log_container.apply_entries do |entry, _|
-          node.handler.on_command(entry.command)
+        log_container.apply_entries do |entry, _|
+          node.handler.on_command(entry.command) unless entry.query?
         end
 
         node.save
@@ -57,26 +56,26 @@ module Yora
 
       transmitter.send_message(reply_to, :append_entries_resp,
                                success: true, term: current_term,
-                               match_index: node.log_container.last_index)
+                               match_index: log_container.last_index)
     end
 
     def on_install_snapshot(opts)
-      reply_to = node.cluster[opts[:peer]]
+      reply_to = cluster[opts[:peer]]
 
-      if node.current_term > opts[:term]
+      if current_term > opts[:term]
         transmitter.send_message(reply_to, :install_snapshot_resp,
-                                 success: false, term: node.current_term,
-                                 match_index: node.log_container.last_index)
+                                 success: false, term: current_term,
+                                 match_index: log_container.last_index)
       else
         if include_log?(opts[:last_included_index], opts[:last_included_term])
           transmitter.send_message(reply_to, :install_snapshot_resp,
-                                   success: true, term: node.current_term,
-                                   match_index: node.log_container.last_index)
+                                   success: true, term: current_term,
+                                   match_index: log_container.last_index)
         else
           install_snapshot(opts)
           transmitter.send_message(reply_to, :install_snapshot_resp,
-                                   success: true, term: node.current_term,
-                                   match_index: node.log_container.last_index)
+                                   success: true, term: current_term,
+                                   match_index: log_container.last_index)
         end
       end
     end
@@ -92,15 +91,15 @@ module Yora
     end
 
     def include_log?(index, term)
-      node.log_container.include?(index, term)
+      log_container.include?(index, term)
     end
 
     def valid_vote_request?(opts)
-      return false if opts[:term] < node.current_term
+      return false if opts[:term] < current_term
       return false if node.voted_for && opts[:candidate_id] != node.voted_for
 
-      return false if node.log_container.last_term > opts[:last_log_term]
-      return false if node.log_container.last_index > opts[:last_log_index]
+      return false if log_container.last_term > opts[:last_log_term]
+      return false if log_container.last_index > opts[:last_log_index]
 
       true
     end

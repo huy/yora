@@ -11,7 +11,7 @@ module Yora
     def initialize(node)
       @node = node
 
-      @election = Election.new(node.cluster.size)
+      @election = Election.new(cluster.size)
       @election_timeout = timer.next
 
       node.next_term
@@ -25,9 +25,9 @@ module Yora
 
     def on_append_entries(opts)
       reply_to = node.cluster[opts[:peer]]
-      if node.current_term > opts[:term]
+      if current_term > opts[:term]
         transmitter.send_message(reply_to, :append_entries_resp,
-                                 success: false, term: node.current_term)
+                                 success: false, term: current_term)
       else
         node.role = Follower.new(node)
         node.on_append_entries(opts)
@@ -43,13 +43,13 @@ module Yora
     def broadcast_vote_request
       peers.each do |peer|
         opts = {
-          term: node.current_term,
-          candidate_id: node.node_id,
-          last_log_index: node.log_container.last_index,
-          last_log_term: node.log_container.last_term
+          term: current_term,
+          candidate_id: node_id,
+          last_log_index: log_container.last_index,
+          last_log_term: log_container.last_term
         }
 
-        transmitter.send_message(node.cluster[peer], :request_vote, opts)
+        transmitter.send_message(cluster[peer], :request_vote, opts)
       end
     end
 

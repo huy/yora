@@ -5,7 +5,7 @@ class TestLogEntry < Test::Unit::TestCase
   include Yora::Message
 
   def test_serialize_deserialize_log_entry
-    opts = { entries: [Yora::LogEntry.new(0, 'hello', '127.0.0.1:7777')] }
+    opts = { entries: [Yora::CommandLogEntry.new(0, 'hello', '127.0.0.1:7777')] }
 
     actual = deserialize(serialize(opts))
     entry = actual[:entries].first

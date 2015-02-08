@@ -1,5 +1,9 @@
 module Yora
   module AnyRoles
+    def node_id
+      node.node_id
+    end
+
     def timer
       node.timer
     end
@@ -10,6 +14,18 @@ module Yora
 
     def persistence
       node.persistence
+    end
+
+    def log_container
+      node.log_container
+    end
+
+    def current_term
+      node.current_term
+    end
+
+    def cluster
+      node.cluster
     end
   end
 

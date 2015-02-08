@@ -4,7 +4,16 @@
 
 Ruby implementation of raft consensus protocol intended for study purpose.
 
-== FEATURES/PROBLEMS:
+== FEATURES:
+
+Fault tolerant git server as demonstration how to implement distributed fault tolerant service
+
+The flow
+
+1. Use push ref into a git remote
+2. Server side update hook is invoked, new ref and commit# is passed as command to a coordinator
+it hangs until got confirmation from that the comand was applied then return zero as exit code
+
 
 == SYNOPSIS:
 

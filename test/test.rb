@@ -93,6 +93,6 @@ class Test3Nodes < Test::Unit::TestCase
   end
 
   def log_entry(term, command = nil)
-    LogEntry.new(term, command)
+    CommandLogEntry.new(term, command)
   end
 end
