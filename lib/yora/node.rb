@@ -58,44 +58,45 @@ module Yora
       end
     end
 
-    def on_rpc_request_or_response(opts)
+    def on_request_or_response(opts)
       if opts[:term] > current_term
         @current_term = opts[:term]
         @role = Follower.new(self)
+        @voted_for = nil
       end
     end
 
     ## handle rpc request
 
     def on_request_vote(opts)
-      on_rpc_request_or_response(opts)
+      on_request_or_response(opts)
       @role.on_request_vote(opts)
     end
 
     def on_append_entries(opts)
-      on_rpc_request_or_response(opts)
+      on_request_or_response(opts)
       @role.on_append_entries(opts)
     end
 
     def on_install_snapshot(opts)
-      on_rpc_request_or_response(opts)
+      on_request_or_response(opts)
       @role.on_install_snapshot(opts)
     end
 
     ## handle rpc response
 
     def on_request_vote_resp(opts)
-      on_rpc_request_or_response(opts)
+      on_request_or_response(opts)
       @role.on_request_vote_resp(opts)
     end
 
     def on_append_entries_resp(opts)
-      on_rpc_request_or_response(opts)
+      on_request_or_response(opts)
       @role.on_append_entries_resp(opts)
     end
 
     def on_install_snapshot_resp(opts)
-      on_rpc_request_or_response(opts)
+      on_request_or_response(opts)
       @role.on_install_snapshot_resp(opts)
     end
 

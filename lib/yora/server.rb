@@ -47,7 +47,7 @@ module Yora
 
     attr_reader :node, :in_queue, :out_queue
 
-    def initialize(node_id, node_address, peers, second_per_tick = 2)
+    def initialize(node_id, node_address, handlerClass, peers, second_per_tick = 2)
       @host, @port = node_address.split(':')
       @port = @port.to_i
 
@@ -63,7 +63,7 @@ module Yora
 
       snapshot = @persistence.read_snapshot
 
-      @handler = StateMachine::KeyValueStore.new(snapshot[:data])
+      @handler = handlerClass.new(snapshot[:data])
 
       @timer = Timer.new(2 * @second_per_tick, 5 * @second_per_tick)
 
