@@ -6,6 +6,8 @@ module Yora
       @node_id = id
 
       @handler = handler
+      @handler.node = self
+
       @timer = timer
       @transmitter = transmitter
       @persistence = persistence
@@ -123,7 +125,7 @@ module Yora
     end
 
     def leader_addr
-      @cluster[@leader_id]
+      @cluster[@leader_id] if @cluster
     end
 
     def next_term
@@ -134,23 +136,35 @@ module Yora
       @log_container.last_commit
     end
 
-    def save
-      if @log_container.exceed_limit?
+    def last_applied
+      @log_container.last_applied
+    end
 
+    def leader?
+      @role.leader?
+    end
+
+    def save
+      if log_container.exceed_limit?
+        save_snapshot
+      end
+
+      persistence.save_log_entries(log_container.entries)
+      persistence.save_metadata(@current_term, @voted_for, @cluster)
+    end
+
+    def save_snapshot
         last_included_index = log_container.last_applied
         last_included_term = log_container.last_applied_term
 
-        @persistence.save_snapshot(
+        persistence.save_snapshot(
           last_included_index: last_included_index,
           last_included_term: last_included_term,
-          data: @handler.take_snapshot
+          data: handler.take_snapshot
         )
 
-        @log_container.drop_util_last_applied
-      end
-
-      @persistence.save_log_entries(@log_container.entries)
-      @persistence.save_metadata(@current_term, @voted_for, @cluster)
+        log_container.drop_util_last_applied
     end
+
   end
 end

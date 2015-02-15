@@ -21,12 +21,11 @@ module Yora
 
       if opts[:send_to] == @server.node.node_id
 
-        $stderr.puts "send #{opts[:message_type]} to local"
+        $stderr.puts "send #{opts[:message_type]}, #{opts[:success]} to local"
 
         @server.in_queue << opts
       else
-        $stderr.puts "send #{opts[:message_type]} to #{opts[:send_to]}"
-
+        $stderr.puts "send #{opts[:message_type]}, #{opts[:success]}, prev index = #{opts[:prev_log_index]}, prev term = #{opts[:prev_log_term]} to #{opts[:send_to]}"
         @server.out_queue << opts
       end
     end
@@ -46,8 +45,9 @@ module Yora
     include Message
 
     attr_reader :node, :in_queue, :out_queue
+    attr_writer :debug
 
-    def initialize(node_id, node_address, handlerClass, peers, second_per_tick = 2)
+    def initialize(node_id, node_address, handler, peers, second_per_tick = 2)
       @host, @port = node_address.split(':')
       @port = @port.to_i
 
@@ -63,26 +63,34 @@ module Yora
 
       snapshot = @persistence.read_snapshot
 
-      @handler = handlerClass.new(snapshot[:data])
+      @handler = handler
+
+      @handler.restore(snapshot[:data])
 
       @timer = Timer.new(2 * @second_per_tick, 5 * @second_per_tick)
 
       @node = Node.new(node_id, @transmitter, @handler, @timer, @persistence)
+
+      @node.cluster = peers.merge(@node.cluster)
     end
 
     def join
       client = Client.new(@peers.values)
       response = client.command(:join, peer: @node.node_id, peer_address: "#{@host}:#{@port}")
-      $stderr.puts "got #{response}"
+      $stderr.puts "-- got #{response}"
 
-      node.cluster = response[:cluster]
-      bootstrap
+      if response
+        node.cluster = response[:cluster]
+        bootstrap
+      else
+        $stderr.puts "unable to join existing cluster"
+      end
     end
 
     def leave
       client = Client.new(@peers.values)
       response = client.command(:leave, peer: @node.node_id, peer_address: "#{@host}:#{@port}")
-      $stderr.puts "got #{response}"
+      $stderr.puts "-- got #{response}"
     end
 
     def bootstrap
@@ -98,11 +106,9 @@ module Yora
         sender_loop
       end
 
-      processor = Thread.new do
-        processor_loop
-      end
+      processor_loop
 
-      [timer, receiver, sender, processor].each(&:join)
+      [timer, receiver, sender].each(&:join)
     end
 
     def timer_loop
@@ -140,7 +146,7 @@ module Yora
         addr = msg[:send_to]
         if addr
           host, port = addr.split(':')
-          $stderr.puts "sending #{msg[:message_type]} to #{addr}"
+          #$stderr.puts "sending #{msg[:message_type]} to #{addr}"
           _ = socket.send(raw, 0, host, port.to_i)
         else
           $stderr.puts "quietly drop #{msg[:message_type]} unknown destination"
@@ -154,9 +160,15 @@ module Yora
 
     def processor_loop
       loop do
+
+        if @debug
+          $stderr.puts "Press any keys to continue"
+          response = gets
+        end
+
         msg = @in_queue.pop
 
-        $stderr.puts "processing #{msg[:message_type]} term #{msg[:term]} " \
+        $stderr.puts "processing #{msg[:message_type]}, #{msg[:success]} term = #{msg[:term]}, match index = #{msg[:match_index]}  " \
           "from #{msg[:client] || msg[:peer]}"
 
         @node.dispatch(msg)
@@ -167,7 +179,7 @@ module Yora
           "expires in #{expiry} ticks"
       end
     rescue => ex
-      $stderr.puts "error #{ex} in processor thread"
+      $stderr.puts "error #{ex} in processor_loop"
       $stderr.puts ex.backtrace.join("\n")
       exit(2)
     end

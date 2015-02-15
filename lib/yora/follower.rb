@@ -22,6 +22,9 @@ module Yora
         transmitter.send_message(reply_to, :request_vote_resp,
                                  term: current_term, vote_granted: true)
       else
+        #$stderr.puts "-- reject vote request #{opts}, "\
+        #  "last_log_term = #{log_container.last_term}, last_log_index = #{log_container.last_index}"
+
         transmitter.send_message(reply_to, :request_vote_resp,
                                  term: current_term, vote_granted: false)
       end
@@ -33,22 +36,26 @@ module Yora
       @election_timeout = timer.next
 
       if (current_term > opts[:term]) || inconsistent_log?(opts)
+
+        #$stderr.puts "-- reject append entries term = #{opts[:term]}, "\
+        #  "prev_log_term = #{opts[:prev_log_term]}, prev_log_index = #{opts[:prev_log_index]},"
         transmitter.send_message(reply_to, :append_entries_resp,
                                  success: false, term: current_term)
         return
       end
 
-      unless opts[:entries].empty?
+      if (not opts[:entries].empty?) or (opts[:commit_index] > log_container.last_commit)
         node.leader_id = opts[:leader_id]
 
         accept_new_config_if_any(opts[:entries])
+        accept_new_command(opts[:entries])
 
         log_container.replace_from(opts[:prev_log_index], opts[:entries])
 
         log_container.advance_commit_to(opts[:commit_index])
 
         log_container.apply_entries do |entry, _|
-          node.handler.on_command(entry.command) unless entry.query?
+          handler.on_command(entry.command) unless entry.query?
         end
 
         node.save
@@ -67,11 +74,12 @@ module Yora
                                  success: false, term: current_term,
                                  match_index: log_container.last_index)
       else
-        if include_log?(opts[:last_included_index], opts[:last_included_term])
+        if log_container.include?(opts[:last_included_index], opts[:last_included_term])
           transmitter.send_message(reply_to, :install_snapshot_resp,
                                    success: true, term: current_term,
                                    match_index: log_container.last_index)
         else
+          node.leader_id = opts[:leader_id]
           install_snapshot(opts)
           transmitter.send_message(reply_to, :install_snapshot_resp,
                                    success: true, term: current_term,
@@ -87,11 +95,7 @@ module Yora
     end
 
     def inconsistent_log?(opts)
-      !include_log?(opts[:prev_log_index], opts[:prev_log_term])
-    end
-
-    def include_log?(index, term)
-      log_container.include?(index, term)
+      not log_container.include?(opts[:prev_log_index], opts[:prev_log_term])
     end
 
     def valid_vote_request?(opts)
@@ -105,15 +109,26 @@ module Yora
     end
 
     def install_snapshot(snapshot)
-      node.handler.data = snapshot[:data]
+      handler.data = snapshot[:data]
+
       node.log_container = LogContainer.new(
         snapshot[:last_included_index],
         snapshot[:last_included_term])
+
+      node.save_snapshot
     end
 
     def accept_new_config_if_any(entries)
       index = entries.rindex(&:config?)
       node.cluster = entries[index].cluster if index
+    end
+
+    def accept_new_command(entries)
+      entries.each do |entry|
+        if entry.command? && handler.respond_to?(:pre_command) && entry.command
+          handler.pre_command(entry.command)
+        end
+      end
     end
   end
 end

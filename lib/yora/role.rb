@@ -27,6 +27,11 @@ module Yora
     def cluster
       node.cluster
     end
+
+    def handler
+      node.handler
+    end
+
   end
 
   module CandidateOrLeader
@@ -36,9 +41,14 @@ module Yora
 
     def on_request_vote(_)
     end
+
   end
 
   module FollowerOrCandidate
+    def leader?
+      false
+    end
+
     def on_append_entries_resp(_)
     end
 

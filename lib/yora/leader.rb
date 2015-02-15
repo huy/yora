@@ -22,6 +22,10 @@ module Yora
       end
     end
 
+    def leader?
+      true
+    end
+
     def on_append_entries(_)
     end
 
@@ -214,17 +218,22 @@ module Yora
         log_container.last_commit = new_commit
 
         apply_entries
+
+        node.save
       end
     end
 
     def apply_entries
       log_container.apply_entries do |entry, index|
         if entry.query?
-          response = node.handler.on_query(entry.query)
+          response = handler.on_query(entry.query)
         else
-          response = node.handler.on_command(entry.command)
+          response = handler.on_command(entry.command)
         end
         response[:applied_index] = index
+
+        handler.post_command(entry.command) if handler.respond_to?(:post_command)
+
         transmitter.send_message(entry.client, :command_resp, response)
       end
     end

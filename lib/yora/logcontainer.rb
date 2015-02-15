@@ -57,9 +57,11 @@ module Yora
     end
 
     def drop_util_last_applied
-      @entries = @entries.drop(last_applied - first_index + 1)
-      @snapshot_last_included_index = last_applied
       @snapshot_last_included_term = term(last_applied)
+
+      @entries = @entries.drop(last_applied - first_index + 1)
+
+      @snapshot_last_included_index = last_applied
     end
 
     def slice(range)
@@ -93,10 +95,10 @@ module Yora
         entry = self[i]
         next if entry.config? || entry.noop?
 
+        @last_applied = i
+
         yield entry, i if block_given?
       end
-
-      @last_applied = @last_commit
     end
 
     def include?(index, term)
@@ -110,6 +112,8 @@ module Yora
 
     def advance_commit_to(commit_index)
       @last_commit = [commit_index, last_index].min
+
+      @last_commit == commit_index
     end
 
     def get_from(index)

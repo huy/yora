@@ -32,6 +32,10 @@ module Yora
       @command.nil?
     end
 
+    def command?
+      true
+    end
+
     def query?
       false
     end
@@ -72,6 +76,10 @@ module Yora
       false
     end
 
+    def command?
+      false
+    end
+
     def query?
       true
     end
@@ -104,6 +112,10 @@ module Yora
 
     def config?
       true
+    end
+
+    def command?
+      false
     end
 
     def query?

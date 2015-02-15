@@ -1,9 +1,9 @@
 module Yora
   module StateMachine
     class Echo
-      attr_accessor :data
+      attr_accessor :node, :data
 
-      def initialize
+      def restore(_)
       end
 
       def on_command(command_str)

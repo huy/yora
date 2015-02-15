@@ -82,6 +82,8 @@ module Yora
 
       response, _ = socket.recvfrom(MAX_RESPONSE_LEN)
 
+      $stderr.puts "got '#{response}'"
+
       deserialize(response)
     end
   end

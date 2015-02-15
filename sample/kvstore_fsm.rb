@@ -1,7 +1,9 @@
 module Yora
   module StateMachine
     class KeyValueStore
-      def initialize(data)
+      attr_accessor :node, :data
+
+      def restore(data)
         @data = data || {}
       end
 

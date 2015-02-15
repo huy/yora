@@ -128,7 +128,7 @@ class TestFollower < Test3Nodes
                            entries: [ConfigLogEntry.new(0, new_cluster)],
                            commit_index: 2
 
-    assert_equal node.cluster, new_cluster
+    assert_equal new_cluster, node.cluster
   end
 
   def test_on_append_entries_take_snapshot_when_exceeding_max_log
