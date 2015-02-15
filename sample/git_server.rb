@@ -30,9 +30,9 @@ git_repo_path = File.expand_path(git_repo_path)
 
 handler = Yora::StateMachine::Git.new(git_repo_path, bind)
 server = Yora::Server.new(node_id,
-  bind,
-  handler,
-  peers)
+                          bind,
+                          handler,
+                          peers)
 
 server.debug = debug
 

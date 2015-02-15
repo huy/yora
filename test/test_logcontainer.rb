@@ -109,5 +109,4 @@ class TestLogContainer < Test::Unit::TestCase
     assert_equal 2, log_container.first_index
     assert_equal [], log_container.entries
   end
-
 end

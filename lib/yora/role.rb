@@ -31,7 +31,6 @@ module Yora
     def handler
       node.handler
     end
-
   end
 
   module CandidateOrLeader
@@ -41,7 +40,6 @@ module Yora
 
     def on_request_vote(_)
     end
-
   end
 
   module FollowerOrCandidate

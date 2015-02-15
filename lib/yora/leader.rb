@@ -35,15 +35,14 @@ module Yora
     def on_append_entries_resp(opts)
       peer = opts[:peer]
       if opts[:success]
-
         update_peer_index(peer, opts[:match_index])
 
         commit_entries
-
-        send_entries(peer) if match_indices[peer] < log_container.last_index
-
       else
         decrement_next_index(peer)
+      end
+
+      if match_indices[peer] < log_container.last_index
         if next_indices[peer] >= log_container.first_index
           send_entries(peer)
         else

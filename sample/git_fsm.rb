@@ -12,9 +12,7 @@ module Yora
         @repo_path = repo_path
         @node_addr = node_addr
 
-        unless File.directory?(repo_path)
-          create_git_repo
-        end
+        create_git_repo unless File.directory?(repo_path)
 
         install_git_hook
       end
@@ -49,8 +47,8 @@ client = Yora::Client.new(['#{node_addr}'])
 msg = client.send_request('#{node_addr}', message_type: :command, command: ARGV.join(' '))
 
 if msg && msg[:success]
-  # this is workaround becase the server has already updated ref, but the git command line
-  # will need refname pointed to oldrev
+  # this is workaround because the our git fsm has already updated refname,
+  # but the git command line requires refname pointed to oldrev to succeed
   cmd = ['git --git-dir=', ENV['GIT_DIR'], ' update-ref ', refname, ' ', oldrev].join
   git(cmd)
   exit(0)
@@ -65,8 +63,9 @@ EOS
       def git_fetch(refname)
         leader_host = node.leader_addr.split(':').first
         leader_repo_path = repo_path.sub(node.node_id, node.leader_id)
+        leader_git_url = "ssh://#{leader_host}#{leader_repo_path}"
 
-        cmd = "git --git-dir=#{repo_path} fetch ssh://#{leader_host}#{leader_repo_path} +#{refname}:#{refname}"
+        cmd = "git --git-dir=#{repo_path} fetch #{leader_git_url} +#{refname}:#{refname}"
 
         git(cmd)
       end
@@ -81,7 +80,7 @@ EOS
       end
 
       def pre_command(update_ref)
-        refname, oldrev, newrev = update_ref.split
+        refname, _, _ = update_ref.split
         arr = refname.split('/')
         arr[2] = "for_#{arr[2]}"
         for_refname = arr.join('/')
@@ -90,12 +89,12 @@ EOS
       end
 
       def on_command(update_ref)
-        refname, oldrev, newrev = update_ref.split
+        refname, _, newrev = update_ref.split
 
         @data[refname] = newrev
         git_update_ref(refname, newrev)
 
-        return { success: true }
+        { success: true }
       end
 
       def post_command(_)
@@ -103,21 +102,20 @@ EOS
         node.save_snapshot
       end
 
-      def on_query(query_str)
-
+      def on_query(_query_str)
       end
 
+      # rubocop:disable TrivialAccessors
       def take_snapshot
         @data
       end
 
       def data=(value)
         @data = value || {}
-        @data.each do |refname, newrev|
+        @data.each do |refname, _newrev|
           git_fetch(refname)
         end
       end
-
     end
   end
 end

@@ -22,9 +22,6 @@ module Yora
         transmitter.send_message(reply_to, :request_vote_resp,
                                  term: current_term, vote_granted: true)
       else
-        #$stderr.puts "-- reject vote request #{opts}, "\
-        #  "last_log_term = #{log_container.last_term}, last_log_index = #{log_container.last_index}"
-
         transmitter.send_message(reply_to, :request_vote_resp,
                                  term: current_term, vote_granted: false)
       end
@@ -37,14 +34,14 @@ module Yora
 
       if (current_term > opts[:term]) || inconsistent_log?(opts)
 
-        #$stderr.puts "-- reject append entries term = #{opts[:term]}, "\
+        # $stderr.puts "-- reject append entries term = #{opts[:term]}, "\
         #  "prev_log_term = #{opts[:prev_log_term]}, prev_log_index = #{opts[:prev_log_index]},"
         transmitter.send_message(reply_to, :append_entries_resp,
                                  success: false, term: current_term)
         return
       end
 
-      if (not opts[:entries].empty?) or (opts[:commit_index] > log_container.last_commit)
+      if (!opts[:entries].empty?) || (opts[:commit_index] > log_container.last_commit)
         node.leader_id = opts[:leader_id]
 
         accept_new_config_if_any(opts[:entries])
@@ -95,7 +92,7 @@ module Yora
     end
 
     def inconsistent_log?(opts)
-      not log_container.include?(opts[:prev_log_index], opts[:prev_log_term])
+      !log_container.include?(opts[:prev_log_index], opts[:prev_log_term])
     end
 
     def valid_vote_request?(opts)

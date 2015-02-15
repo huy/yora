@@ -145,26 +145,23 @@ module Yora
     end
 
     def save
-      if log_container.exceed_limit?
-        save_snapshot
-      end
+      save_snapshot if log_container.exceed_limit?
 
       persistence.save_log_entries(log_container.entries)
       persistence.save_metadata(@current_term, @voted_for, @cluster)
     end
 
     def save_snapshot
-        last_included_index = log_container.last_applied
-        last_included_term = log_container.last_applied_term
+      last_included_index = log_container.last_applied
+      last_included_term = log_container.last_applied_term
 
-        persistence.save_snapshot(
-          last_included_index: last_included_index,
-          last_included_term: last_included_term,
-          data: handler.take_snapshot
-        )
+      persistence.save_snapshot(
+        last_included_index: last_included_index,
+        last_included_term: last_included_term,
+        data: handler.take_snapshot
+      )
 
-        log_container.drop_util_last_applied
+      log_container.drop_util_last_applied
     end
-
   end
 end

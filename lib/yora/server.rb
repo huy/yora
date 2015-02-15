@@ -1,4 +1,3 @@
-require 'thread'
 require 'socket'
 require 'json'
 
@@ -25,7 +24,9 @@ module Yora
 
         @server.in_queue << opts
       else
-        $stderr.puts "send #{opts[:message_type]}, #{opts[:success]}, prev index = #{opts[:prev_log_index]}, prev term = #{opts[:prev_log_term]} to #{opts[:send_to]}"
+        $stderr.puts "send #{opts[:message_type]}, #{opts[:success]}, "\
+          "prev index = #{opts[:prev_log_index]}, " \
+          "prev term = #{opts[:prev_log_term]} to #{opts[:send_to]}"
         @server.out_queue << opts
       end
     end
@@ -83,7 +84,7 @@ module Yora
         node.cluster = response[:cluster]
         bootstrap
       else
-        $stderr.puts "unable to join existing cluster"
+        $stderr.puts 'unable to join existing cluster'
       end
     end
 
@@ -146,7 +147,7 @@ module Yora
         addr = msg[:send_to]
         if addr
           host, port = addr.split(':')
-          #$stderr.puts "sending #{msg[:message_type]} to #{addr}"
+          # $stderr.puts "sending #{msg[:message_type]} to #{addr}"
           _ = socket.send(raw, 0, host, port.to_i)
         else
           $stderr.puts "quietly drop #{msg[:message_type]} unknown destination"
@@ -160,15 +161,10 @@ module Yora
 
     def processor_loop
       loop do
-
-        if @debug
-          $stderr.puts "Press any keys to continue"
-          response = gets
-        end
-
         msg = @in_queue.pop
 
-        $stderr.puts "processing #{msg[:message_type]}, #{msg[:success]} term = #{msg[:term]}, match index = #{msg[:match_index]}  " \
+        $stderr.puts "processing #{msg[:message_type]}, #{msg[:success]} "\
+          "term = #{msg[:term]}, match index = #{msg[:match_index]}  " \
           "from #{msg[:client] || msg[:peer]}"
 
         @node.dispatch(msg)
