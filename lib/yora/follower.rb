@@ -71,17 +71,14 @@ module Yora
                                  success: false, term: current_term,
                                  match_index: log_container.last_index)
       else
-        if log_container.include?(opts[:last_included_index], opts[:last_included_term])
-          transmitter.send_message(reply_to, :install_snapshot_resp,
-                                   success: true, term: current_term,
-                                   match_index: log_container.last_index)
-        else
+        unless log_container.include?(opts[:last_included_index], opts[:last_included_term])
           node.leader_id = opts[:leader_id]
           install_snapshot(opts)
-          transmitter.send_message(reply_to, :install_snapshot_resp,
-                                   success: true, term: current_term,
-                                   match_index: log_container.last_index)
         end
+
+        transmitter.send_message(reply_to, :install_snapshot_resp,
+                                 success: true, term: current_term,
+                                 match_index: log_container.last_index)
       end
     end
 

@@ -94,12 +94,11 @@ EOS
         @data[refname] = newrev
         git_update_ref(refname, newrev)
 
-        { success: true }
-      end
-
-      def post_command(_)
         $stderr.puts "-- save_snapshot last_applied = #{node.last_applied}, data = #{@data}"
+
         node.save_snapshot
+
+        { success: true }
       end
 
       def on_query(_query_str)

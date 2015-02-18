@@ -231,8 +231,6 @@ module Yora
         end
         response[:applied_index] = index
 
-        handler.post_command(entry.command) if handler.respond_to?(:post_command)
-
         transmitter.send_message(entry.client, :command_resp, response)
       end
     end
