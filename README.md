@@ -10,8 +10,8 @@ Fault tolerant git server as demonstration how to implement distributed fault to
 
 The flow
 
-1. Use push ref into a git remote
-2. Server side update hook is invoked, new ref and commit# is passed as command to a coordinator
+1. push ref into a git remote
+2. server side update hook is invoked, new ref and commit# is passed as command to a coordinator
 it hangs until got confirmation from that the command was applied then return zero as exit code
 
 == SYNOPSIS:
