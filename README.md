@@ -27,8 +27,8 @@ The git repository `data/${node_id}/gitit` is created.
 
 **REQUIREMENTS**
 
-ruby 2.0
-bundler
+* ruby 2.0
+* bundler
 
 **DEVELOPERS**
 
