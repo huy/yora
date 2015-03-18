@@ -6,7 +6,7 @@ Ruby implementation of raft consensus protocol intended for study purpose.
 
 **FEATURES**
 
-Fault tolerant git server is used to demonstrate how to implement distributed fault tolerant service
+Fault tolerant git server is used to demonstrate how to implement distributed fault tolerant service.
 
 The flow
 
