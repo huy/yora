@@ -16,6 +16,13 @@ it hangs until got confirmation from that the command was applied then return ze
 
 **SYNOPSIS**
 
+Run an fault tolerant git server
+
+    $cd sample
+    $ruby git_server.rb 
+    Usage:
+	     git_server.rb --node=888,127.0.0.1:2358 [--join|--leave] [--peer=999,127.0.0.1:2359]
+
 **REQUIREMENTS**
 
 ruby 2.0
