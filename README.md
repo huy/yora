@@ -27,11 +27,10 @@ bundler
 
 After checking out the source, run:
 
-  $ bundle install
-  $ rake
+    $ bundle install
+    $ bundle exec rake
 
-This task will install any missing dependencies, run the tests/specs,
-and generate the RDoc.
+These tasks will install any missing dependencies and run the tests
 
 **LICENSE**
 
